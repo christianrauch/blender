@@ -578,14 +578,18 @@ if(WITH_GHOST_WAYLAND)
 
   set(WITH_GL_EGL ON)
 
-  if(WITH_GHOST_WAYLAND)
-    list(APPEND PLATFORM_LINKLIBS
-      ${wayland-client_LIBRARIES}
-      ${wayland-egl_LIBRARIES}
-      ${xkbcommon_LIBRARIES}
-      ${wayland-cursor_LIBRARIES}
-    )
-  endif()
+  link_directories(
+    ${wayland-client_LIBRARY_DIRS}
+    ${wayland-egl_LIBRARY_DIRS}
+    ${xkbcommon_LIBRARY_DIRS}
+    ${wayland-cursor_LIBRARY_DIRS})
+
+  list(APPEND PLATFORM_LINKLIBS
+    ${wayland-client_LIBRARIES}
+    ${wayland-egl_LIBRARIES}
+    ${xkbcommon_LIBRARIES}
+    ${wayland-cursor_LIBRARIES}
+  )
 endif()
 
 if(WITH_GHOST_X11)
