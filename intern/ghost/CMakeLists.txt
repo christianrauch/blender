@@ -283,6 +283,7 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       ${xkbcommon_INCLUDE_DIRS}
       ${wayland-cursor_INCLUDE_DIRS}
       ${dbus_INCLUDE_DIRS}
+      ${libdecor_INCLUDE_DIRS}
     )
 
     list(APPEND SRC

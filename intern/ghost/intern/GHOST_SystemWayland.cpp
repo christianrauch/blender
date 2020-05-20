@@ -142,7 +142,7 @@ struct display_t {
 
   struct wl_display *display;
   struct wl_compositor *compositor = nullptr;
-  struct xdg_wm_base *xdg_shell = nullptr;
+  struct libdecor *decoration_context = nullptr;
   struct wl_shm *shm = nullptr;
   std::vector<output_t *> outputs;
   std::vector<input_t *> inputs;
@@ -154,6 +154,8 @@ struct display_t {
   std::vector<struct wl_surface *> os_surfaces;
   std::vector<struct wl_egl_window *> os_egl_windows;
 };
+
+static GHOST_WindowManager *window_manager = nullptr;
 
 static void display_destroy(display_t *d)
 {
@@ -239,8 +241,8 @@ static void display_destroy(display_t *d)
     wl_compositor_destroy(d->compositor);
   }
 
-  if (d->xdg_shell) {
-    xdg_wm_base_destroy(d->xdg_shell);
+  if (d->decoration_context) {
+    libdecor_unref(d->decoration_context);
   }
 
   if (eglGetDisplay) {
@@ -797,6 +799,20 @@ const struct wl_buffer_listener cursor_buffer_listener = {
     cursor_buffer_release,
 };
 
+static GHOST_IWindow *get_window(struct wl_surface *surface)
+{
+  if (!surface) {
+    return nullptr;
+  }
+
+  for (GHOST_IWindow *win : window_manager->getWindows()) {
+    if (surface == static_cast<const GHOST_WindowWayland *>(win)->surface()) {
+      return win;
+    }
+  }
+  return nullptr;
+}
+
 static void pointer_enter(void *data,
                           struct wl_pointer * /*wl_pointer*/,
                           uint32_t serial,
@@ -804,22 +820,28 @@ static void pointer_enter(void *data,
                           wl_fixed_t surface_x,
                           wl_fixed_t surface_y)
 {
-  if (!surface) {
+  GHOST_IWindow *win = get_window(surface);
+
+  if (!win) {
     return;
   }
+
+  static_cast<GHOST_WindowWayland *>(win)->activate();
+
   input_t *input = static_cast<input_t *>(data);
   input->pointer_serial = serial;
   input->x = wl_fixed_to_int(surface_x);
   input->y = wl_fixed_to_int(surface_y);
   input->focus_pointer = surface;
 
-  input->system->pushEvent(
-      new GHOST_EventCursor(input->system->getMilliSeconds(),
-                            GHOST_kEventCursorMove,
-                            static_cast<GHOST_WindowWayland *>(wl_surface_get_user_data(surface)),
-                            input->x,
-                            input->y,
-                            GHOST_TABLET_DATA_NONE));
+  win->setCursorShape(win->getCursorShape());
+
+  input->system->pushEvent(new GHOST_EventCursor(input->system->getMilliSeconds(),
+                                                 GHOST_kEventCursorMove,
+                                                 static_cast<GHOST_WindowWayland *>(win),
+                                                 input->x,
+                                                 input->y,
+                                                 GHOST_TABLET_DATA_NONE));
 }
 
 static void pointer_leave(void *data,
@@ -827,9 +849,14 @@ static void pointer_leave(void *data,
                           uint32_t /*serial*/,
                           struct wl_surface *surface)
 {
-  if (surface != nullptr) {
-    static_cast<input_t *>(data)->focus_pointer = nullptr;
+  GHOST_IWindow *win = get_window(surface);
+
+  if (!win) {
+    return;
   }
+
+  static_cast<input_t *>(data)->focus_pointer = nullptr;
+  static_cast<GHOST_WindowWayland *>(win)->deactivate();
 }
 
 static void pointer_motion(void *data,
@@ -840,8 +867,7 @@ static void pointer_motion(void *data,
 {
   input_t *input = static_cast<input_t *>(data);
 
-  GHOST_IWindow *win = static_cast<GHOST_WindowWayland *>(
-      wl_surface_get_user_data(input->focus_pointer));
+  GHOST_IWindow *win = get_window(input->focus_pointer);
 
   if (!win) {
     return;
@@ -865,6 +891,14 @@ static void pointer_button(void *data,
                            uint32_t button,
                            uint32_t state)
 {
+  input_t *input = static_cast<input_t *>(data);
+
+  GHOST_IWindow *win = get_window(input->focus_pointer);
+
+  if (!win) {
+    return;
+  }
+
   GHOST_TEventType etype = GHOST_kEventUnknown;
   switch (state) {
     case WL_POINTER_BUTTON_STATE_RELEASED:
@@ -888,9 +922,6 @@ static void pointer_button(void *data,
       break;
   }
 
-  input_t *input = static_cast<input_t *>(data);
-  GHOST_IWindow *win = static_cast<GHOST_WindowWayland *>(
-      wl_surface_get_user_data(input->focus_pointer));
   input->data_source->source_serial = serial;
   input->buttons.set(ebutton, state == WL_POINTER_BUTTON_STATE_PRESSED);
   input->system->pushEvent(new GHOST_EventButton(
@@ -903,12 +934,18 @@ static void pointer_axis(void *data,
                          uint32_t axis,
                          wl_fixed_t value)
 {
+  input_t *input = static_cast<input_t *>(data);
+
+  GHOST_IWindow *win = get_window(input->focus_pointer);
+
+  if (!win) {
+    return;
+  }
+
   if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
     return;
   }
-  input_t *input = static_cast<input_t *>(data);
-  GHOST_IWindow *win = static_cast<GHOST_WindowWayland *>(
-      wl_surface_get_user_data(input->focus_pointer));
+
   input->system->pushEvent(
       new GHOST_EventWheel(input->system->getMilliSeconds(), win, std::signbit(value) ? +1 : -1));
 }
@@ -1210,13 +1247,18 @@ static const struct wl_output_listener output_listener = {
     output_scale,
 };
 
-static void shell_ping(void * /*data*/, struct xdg_wm_base *xdg_wm_base, uint32_t serial)
+static void handle_error(struct libdecor * /*context*/,
+                         enum libdecor_error error,
+                         const char *message)
 {
-  xdg_wm_base_pong(xdg_wm_base, serial);
+  (void)(error);
+  (void)(message);
+  GHOST_PRINT("decoration error (" << error << "): " << message << std::endl);
+  exit(EXIT_FAILURE);
 }
 
-static const struct xdg_wm_base_listener shell_listener = {
-    shell_ping,
+static struct libdecor_interface libdecor_iface = {
+    .error = handle_error,
 };
 
 static void global_add(void *data,
@@ -1229,11 +1271,6 @@ static void global_add(void *data,
   if (!strcmp(interface, wl_compositor_interface.name)) {
     display->compositor = static_cast<wl_compositor *>(
         wl_registry_bind(wl_registry, name, &wl_compositor_interface, 1));
-  }
-  else if (!strcmp(interface, xdg_wm_base_interface.name)) {
-    display->xdg_shell = static_cast<xdg_wm_base *>(
-        wl_registry_bind(wl_registry, name, &xdg_wm_base_interface, 1));
-    xdg_wm_base_add_listener(display->xdg_shell, &shell_listener, nullptr);
   }
   else if (!strcmp(interface, wl_output_interface.name)) {
     output_t *output = new output_t;
@@ -1323,9 +1360,11 @@ GHOST_SystemWayland::GHOST_SystemWayland() : GHOST_System(), d(new display_t)
   wl_display_roundtrip(d->display);
   wl_registry_destroy(registry);
 
-  if (!d->xdg_shell) {
+  d->decoration_context = libdecor_new(d->display, &libdecor_iface);
+
+  if (!d->decoration_context) {
     display_destroy(d);
-    throw std::runtime_error("Wayland: unable to access xdg_shell!");
+    throw std::runtime_error("Wayland: unable to create window decorations!");
   }
 
   /* Register data device per seat for IPC between Wayland clients. */
@@ -1534,6 +1573,11 @@ GHOST_IWindow *GHOST_SystemWayland::createWindow(const char *title,
                                                  const bool is_dialog,
                                                  const GHOST_IWindow *parentWindow)
 {
+  /* globally store pointer to window manager */
+  if (!window_manager) {
+    window_manager = getWindowManager();
+  }
+
   GHOST_WindowWayland *window = new GHOST_WindowWayland(
       this,
       title,
@@ -1573,9 +1617,9 @@ wl_compositor *GHOST_SystemWayland::compositor()
   return d->compositor;
 }
 
-xdg_wm_base *GHOST_SystemWayland::shell()
+libdecor *GHOST_SystemWayland::decoration()
 {
-  return d->xdg_shell;
+  return d->decoration_context;
 }
 
 void GHOST_SystemWayland::setSelection(const std::string &selection)

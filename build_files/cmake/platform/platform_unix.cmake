@@ -576,6 +576,7 @@ if(WITH_GHOST_WAYLAND)
   pkg_check_modules(xkbcommon REQUIRED xkbcommon)
   pkg_check_modules(wayland-cursor REQUIRED wayland-cursor)
   pkg_check_modules(dbus REQUIRED dbus-1)
+  pkg_check_modules(libdecor REQUIRED libdecor-0.1)
 
   set(WITH_GL_EGL ON)
 
@@ -585,6 +586,7 @@ if(WITH_GHOST_WAYLAND)
     ${xkbcommon_LIBRARY_DIRS}
     ${wayland-cursor_LIBRARY_DIRS}
     ${dbus_LIBRARY_DIRS}
+    ${libdecor_LIBRARY_DIRS}
   )
 
   list(APPEND PLATFORM_LINKLIBS
@@ -593,6 +595,7 @@ if(WITH_GHOST_WAYLAND)
     ${xkbcommon_LIBRARIES}
     ${wayland-cursor_LIBRARIES}
     ${dbus_LIBRARIES}
+    ${libdecor_LIBRARIES}
   )
 endif()
 

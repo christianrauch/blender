@@ -27,6 +27,7 @@
 class GHOST_SystemWayland;
 
 struct window_t;
+struct wl_surface;
 
 class GHOST_WindowWayland : public GHOST_Window {
  public:
@@ -54,6 +55,8 @@ class GHOST_WindowWayland : public GHOST_Window {
   GHOST_TSuccess deactivate();
 
   GHOST_TSuccess notify_size();
+
+  wl_surface *surface() const;
 
  protected:
   GHOST_TSuccess setWindowCursorGrab(GHOST_TGrabCursorMode mode) override;

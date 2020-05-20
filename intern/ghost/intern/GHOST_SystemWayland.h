@@ -25,8 +25,8 @@
 #include "GHOST_System.h"
 #include "GHOST_WindowWayland.h"
 
+#include <libdecor.h>
 #include <wayland-client.h>
-#include <xdg-shell-client-protocol.h>
 
 #include <string>
 
@@ -82,7 +82,7 @@ class GHOST_SystemWayland : public GHOST_System {
 
   wl_compositor *compositor();
 
-  xdg_wm_base *shell();
+  libdecor *decoration();
 
   void setSelection(const std::string &selection);
 
