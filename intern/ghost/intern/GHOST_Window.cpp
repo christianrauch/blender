@@ -87,6 +87,8 @@ GHOST_TSuccess GHOST_Window::setDrawingContextType(GHOST_TDrawingContextType typ
       m_drawingContextType = GHOST_kDrawingContextTypeNone;
     }
 
+    m_context->setSwapInterval(0);
+
     return (type == m_drawingContextType) ? GHOST_kSuccess : GHOST_kFailure;
   }
   else {
