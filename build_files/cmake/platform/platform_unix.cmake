@@ -575,6 +575,7 @@ if(WITH_GHOST_WAYLAND)
   pkg_check_modules(wayland-scanner REQUIRED wayland-scanner)
   pkg_check_modules(xkbcommon REQUIRED xkbcommon)
   pkg_check_modules(wayland-cursor REQUIRED wayland-cursor)
+  pkg_check_modules(dbus REQUIRED dbus-1)
 
   set(WITH_GL_EGL ON)
 
@@ -582,13 +583,16 @@ if(WITH_GHOST_WAYLAND)
     ${wayland-client_LIBRARY_DIRS}
     ${wayland-egl_LIBRARY_DIRS}
     ${xkbcommon_LIBRARY_DIRS}
-    ${wayland-cursor_LIBRARY_DIRS})
+    ${wayland-cursor_LIBRARY_DIRS}
+    ${dbus_LIBRARY_DIRS}
+  )
 
   list(APPEND PLATFORM_LINKLIBS
     ${wayland-client_LIBRARIES}
     ${wayland-egl_LIBRARIES}
     ${xkbcommon_LIBRARIES}
     ${wayland-cursor_LIBRARIES}
+    ${dbus_LIBRARIES}
   )
 endif()
 
