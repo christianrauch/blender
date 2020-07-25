@@ -31,9 +31,15 @@
 
 #include <libdecor.h>
 
+static const size_t base_dpi = 96;
+
 struct window_t {
   GHOST_WindowWayland *w;
   wl_surface *surface;
+  // outputs on which the window is currently shown on
+  std::unordered_set<const output_t *> outputs;
+  GHOST_TUns16 dpi = 0;
+  int scale = 1;
   struct libdecor_frame *frame;
   wl_egl_window *egl_window;
   bool is_maximised;
@@ -61,12 +67,12 @@ static void frame_configure(struct libdecor_frame *frame,
   struct libdecor_state *state;
 
   if (!libdecor_configuration_get_content_size(configuration, frame, &width, &height)) {
-    width = win->width;
-    height = win->height;
+    width = win->width / win->scale;
+    height = win->height / win->scale;
   }
 
-  win->width = width;
-  win->height = height;
+  win->width = win->scale * width;
+  win->height = win->scale * height;
 
   wl_egl_window_resize(win->egl_window, win->width, win->height, 0, 0);
   win->w->notify_size();
@@ -101,6 +107,52 @@ static struct libdecor_frame_interface libdecor_frame_iface = {
     frame_configure,
     frame_close,
     frame_commit,
+};
+
+static bool update_scale(GHOST_WindowWayland *window)
+{
+  int scale = 0;
+  for (const output_t *output : window->outputs_active()) {
+    if (output->scale > scale)
+      scale = output->scale;
+  }
+
+  if (scale > 0 && window->scale() != scale) {
+    window->scale() = scale;
+    // using the real DPI will cause wrong scaling of the UI
+    // use a multiplier for the default DPI as workaround
+    window->dpi() = scale * base_dpi;
+    wl_surface_set_buffer_scale(window->surface(), scale);
+    return true;
+  }
+  return false;
+}
+
+static void surface_enter(void *data, struct wl_surface * /*wl_surface*/, struct wl_output *output)
+{
+  GHOST_WindowWayland *w = static_cast<GHOST_WindowWayland *>(data);
+  for (const output_t *reg_output : w->outputs()) {
+    if (reg_output->output == output) {
+      w->outputs_active().insert(reg_output);
+    }
+  }
+  update_scale(w);
+}
+
+static void surface_leave(void *data, struct wl_surface * /*wl_surface*/, struct wl_output *output)
+{
+  GHOST_WindowWayland *w = static_cast<GHOST_WindowWayland *>(data);
+  for (const output_t *reg_output : w->outputs()) {
+    if (reg_output->output == output) {
+      w->outputs_active().erase(reg_output);
+    }
+  }
+  update_scale(w);
+}
+
+struct wl_surface_listener surface_listener = {
+    surface_enter,
+    surface_leave,
 };
 
 /** \} */
@@ -141,9 +193,9 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
 
   /* Window surfaces. */
   w->surface = wl_compositor_create_surface(m_system->compositor());
-  w->egl_window = wl_egl_window_create(w->surface, int(width), int(height));
+  wl_surface_add_listener(w->surface, &surface_listener, this);
 
-  wl_surface_set_user_data(w->surface, this);
+  w->egl_window = wl_egl_window_create(w->surface, int(width), int(height));
 
   /* create window decorations */
   w->frame = libdecor_decorate(m_system->decoration(), w->surface, &libdecor_frame_iface, w);
@@ -206,6 +258,26 @@ GHOST_TSuccess GHOST_WindowWayland::notify_size()
 wl_surface *GHOST_WindowWayland::surface() const
 {
   return w->surface;
+}
+
+const std::vector<output_t *> &GHOST_WindowWayland::outputs() const
+{
+  return m_system->outputs();
+}
+
+std::unordered_set<const output_t *> &GHOST_WindowWayland::outputs_active()
+{
+  return w->outputs;
+}
+
+uint16_t &GHOST_WindowWayland::dpi()
+{
+  return w->dpi;
+}
+
+int &GHOST_WindowWayland::scale()
+{
+  return w->scale;
 }
 
 GHOST_TSuccess GHOST_WindowWayland::setWindowCursorGrab(GHOST_TGrabCursorMode mode)
@@ -297,6 +369,11 @@ GHOST_WindowWayland::~GHOST_WindowWayland()
   wl_surface_destroy(w->surface);
 
   delete w;
+}
+
+GHOST_TUns16 GHOST_WindowWayland::getDPIHint()
+{
+  return w->dpi;
 }
 
 GHOST_TSuccess GHOST_WindowWayland::setWindowCursorVisibility(bool visible)
