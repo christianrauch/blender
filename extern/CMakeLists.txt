@@ -113,3 +113,15 @@ endif()
 if (WITH_COMPOSITOR)
 	add_subdirectory(smaa_areatex)
 endif()
+
+if(WITH_GHOST_WAYLAND)
+  include(ExternalProject)
+  ExternalProject_Add(libdecor
+    PREFIX "${CMAKE_CURRENT_BINARY_DIR}/libdecor"
+    GIT_REPOSITORY https://gitlab.gnome.org/jadahl/libdecoration.git
+    GIT_TAG master
+    CONFIGURE_COMMAND meson --prefix "${CMAKE_BINARY_DIR}" --libdir "lib" ../libdecor
+    BUILD_COMMAND ninja
+    INSTALL_COMMAND ninja install
+  )
+endif()

@@ -491,3 +491,9 @@ endif()
 add_definitions(${GL_DEFINITIONS})
 
 blender_add_lib(bf_intern_ghost "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+if(WITH_GHOST_WAYLAND)
+  add_dependencies(bf_intern_ghost libdecor)
+  target_link_libraries(bf_intern_ghost PUBLIC decor-0.1)
+  target_include_directories(bf_intern_ghost PUBLIC "${CMAKE_BINARY_DIR}/include/libdecor-0.1/")
+endif()

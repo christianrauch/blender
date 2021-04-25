@@ -292,6 +292,9 @@ function(blender_add_lib__impl
 
   add_library(${name} ${sources})
 
+  # set a library search path
+  target_link_directories(${name} INTERFACE "${CMAKE_BINARY_DIR}/lib")
+
   # On Windows certain libraries have two sets of binaries: one for debug builds and one for
   # release builds. The root of this requirement goes into ABI, I believe, but that's outside
   # of a scope of this comment.
