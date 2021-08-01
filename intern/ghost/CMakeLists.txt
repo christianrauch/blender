@@ -332,6 +332,11 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
     )
 
     add_definitions(-DWITH_GHOST_WAYLAND)
+
+    if(libdecor_FOUND)
+      list(APPEND INC_SYS ${libdecor_INCLUDE_DIRS})
+      add_definitions(-DWITH_WL_DECOR)
+    endif()
   endif()
 
   if(WITH_INPUT_NDOF)

@@ -24,10 +24,14 @@ struct window_t {
   std::unordered_set<const output_t *> outputs;
   uint16_t dpi = 0;
   int scale = 1;
+#ifdef WITH_WL_DECOR
+  struct libdecor_frame *frame;
+#else
   struct xdg_surface *xdg_surface;
   struct xdg_toplevel *xdg_toplevel;
   struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration = nullptr;
   enum zxdg_toplevel_decoration_v1_mode decoration_mode;
+#endif
   wl_egl_window *egl_window;
   int32_t pending_width, pending_height;
   bool is_maximised;
@@ -44,6 +48,8 @@ struct window_t {
  * an event is received from the compositor.
  * \{ */
 
+#ifdef WITH_WL_DECOR
+#else
 static void toplevel_configure(
     void *data, xdg_toplevel * /*xdg_toplevel*/, int32_t width, int32_t height, wl_array *states)
 {
@@ -129,6 +135,7 @@ static void surface_configure(void *data, xdg_surface *xdg_surface, uint32_t ser
 static const xdg_surface_listener surface_listener = {
     surface_configure,
 };
+#endif
 
 static bool update_scale(GHOST_WindowWayland *window)
 {
@@ -218,6 +225,10 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
 
   w->egl_window = wl_egl_window_create(w->surface, int(width), int(height));
 
+#ifdef WITH_WL_DECOR
+  w->frame = libdecor_decorate(context, window->wl_surface,
+                               &libdecor_frame_iface, window);;
+#else
   w->xdg_surface = xdg_wm_base_get_xdg_surface(m_system->shell(), w->surface);
   w->xdg_toplevel = xdg_surface_get_toplevel(w->xdg_surface);
 
@@ -230,10 +241,9 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
                                          ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
   }
 
-  wl_surface_set_user_data(w->surface, this);
-
   xdg_surface_add_listener(w->xdg_surface, &surface_listener, w);
   xdg_toplevel_add_listener(w->xdg_toplevel, &toplevel_listener, w);
+#endif
 
   if (parentWindow && is_dialog) {
     xdg_toplevel_set_parent(

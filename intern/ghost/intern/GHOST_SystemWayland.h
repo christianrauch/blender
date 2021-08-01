@@ -12,8 +12,13 @@
 #include "GHOST_WindowWayland.h"
 
 #include <wayland-client.h>
+
+#ifdef WITH_WL_DECOR
+#include <libdecor.h>
+#else
 #include <xdg-decoration-client-protocol.h>
 #include <xdg-shell-client-protocol.h>
+#endif
 
 #include <string>
 
@@ -79,9 +84,13 @@ class GHOST_SystemWayland : public GHOST_System {
 
   wl_compositor *compositor();
 
+#ifdef WITH_WL_DECOR
+  libdecor *decoration();
+#else
   xdg_wm_base *shell();
 
   zxdg_decoration_manager_v1 *decoration_manager();
+#endif
 
   const std::vector<output_t *> &outputs() const;
 

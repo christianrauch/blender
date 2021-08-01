@@ -608,6 +608,7 @@ if(WITH_GHOST_WAYLAND)
   pkg_check_modules(xkbcommon QUIET xkbcommon)
   pkg_check_modules(dbus QUIET dbus-1)
   pkg_check_modules(wayland-protocols QUIET wayland-protocols>=1.15)
+  pkg_check_modules(libdecor QUIET libdecor-0)
 
   set(WITH_GL_EGL ON)
 
@@ -644,6 +645,11 @@ if(WITH_GHOST_WAYLAND)
   endif()
 
   if(WITH_GHOST_WAYLAND)
+    if(libdecor_FOUND)
+      list(APPEND PLATFORM_LINKLIBS ${libdecor_LINK_LIBRARIES})
+    else()
+      message(STATUS "libdecor not found, disabling client-side decorations")
+    endif()
     list(APPEND PLATFORM_LINKLIBS
       ${wayland-client_LINK_LIBRARIES}
       ${wayland-egl_LINK_LIBRARIES}
