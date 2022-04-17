@@ -508,25 +508,28 @@ endif()
 
 # OpenGL
 
-if(UNIX AND NOT APPLE)
-  # GLEW can only built with either GLX or EGL support and most binary
-  # distributions are built with GLX support. So we always compile GLEW
-  # with EGL support manually, and the options are no longer available.
-  set(WITH_SYSTEM_GLEW OFF)
-  set(WITH_SYSTEM_GLES ON)
-  option(WITH_SYSTEM_FREETYPE "Use the freetype library provided by the operating system" OFF)
+# Experimental EGL option.
+option(WITH_GL_EGL "Use the EGL OpenGL system library instead of the platform specific OpenGL system library (CGL or WGL)" OFF)
+mark_as_advanced(WITH_GL_EGL)
 
-  # Always use EGL instead of GLX, for X11, Wayland and headless.
-  set(WITH_GL_EGL ON)
+if(UNIX AND NOT APPLE)
+  if(WITH_GL_EGL)
+    # GLEW can only built with either GLX or EGL support and most binary
+    # distributions are built with GLX support. So we always compile GLEW
+    # with EGL support manually, and the options are no longer available.
+    set(WITH_SYSTEM_GLEW OFF)
+    set(WITH_SYSTEM_GLES ON)
+  else()
+    option(WITH_SYSTEM_GLEW "Use GLEW OpenGL wrapper library provided by the operating system" OFF)
+    option(WITH_SYSTEM_GLES "Use OpenGL ES library provided by the operating system"           ON)
+  endif()
+
+  option(WITH_SYSTEM_FREETYPE "Use the freetype library provided by the operating system" OFF)
 else()
   # System GLEW and GLES were never an option on other platforms.
   set(WITH_SYSTEM_GLEW OFF)
   set(WITH_SYSTEM_GLES OFF)
   set(WITH_SYSTEM_FREETYPE OFF)
-
-  # Experimental EGL option.
-  option(WITH_GL_EGL "Use the EGL OpenGL system library instead of the platform specific OpenGL system library (CGL or WGL)" OFF)
-  mark_as_advanced(WITH_GL_EGL)
 endif()
 
 option(WITH_OPENGL              "When off limits visibility of the opengl headers to just bf_gpu and gawain (temporary option for development purposes)" ON)
