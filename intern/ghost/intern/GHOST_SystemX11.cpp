@@ -34,7 +34,6 @@
 #include "GHOST_Debug.h"
 
 #include "GHOST_ContextEGL.h"
-#include "GHOST_ContextGLX.h"
 
 #ifdef WITH_XF86KEYSYM
 #  include <X11/XF86keysym.h>
@@ -365,7 +364,6 @@ GHOST_IWindow *GHOST_SystemX11::createWindow(const char *title,
   return window;
 }
 
-#ifdef USE_EGL
 static GHOST_Context *create_egl_context(
     GHOST_SystemX11 *system, Display *display, bool debug_context, int ver_major, int ver_minor)
 {
@@ -389,32 +387,7 @@ static GHOST_Context *create_egl_context(
 
   return nullptr;
 }
-#endif
 
-static GHOST_Context *create_glx_context(Display *display,
-                                         bool debug_context,
-                                         int ver_major,
-                                         int ver_minor)
-{
-  GHOST_Context *context;
-  context = new GHOST_ContextGLX(false,
-                                 (Window) nullptr,
-                                 display,
-                                 (GLXFBConfig) nullptr,
-                                 GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
-                                 ver_major,
-                                 ver_minor,
-                                 GHOST_OPENGL_GLX_CONTEXT_FLAGS |
-                                     (debug_context ? GLX_CONTEXT_DEBUG_BIT_ARB : 0),
-                                 GHOST_OPENGL_GLX_RESET_NOTIFICATION_STRATEGY);
-
-  if (context->initializeDrawingContext()) {
-    return context;
-  }
-  delete context;
-
-  return nullptr;
-}
 /**
  * Create a new off-screen context.
  * Never explicitly delete the context, use #disposeContext() instead.
@@ -436,7 +409,6 @@ GHOST_IContext *GHOST_SystemX11::createOffscreenContext(GHOST_GLSettings glSetti
 
   GHOST_Context *context;
 
-#ifdef USE_EGL
   /* Try to initialize an EGL context. */
   for (int minor = 5; minor >= 0; --minor) {
     context = create_egl_context(this, m_display, debug_context, 4, minor);
@@ -445,19 +417,6 @@ GHOST_IContext *GHOST_SystemX11::createOffscreenContext(GHOST_GLSettings glSetti
     }
   }
   context = create_egl_context(this, m_display, debug_context, 3, 3);
-  if (context != nullptr) {
-    return context;
-  }
-
-  /* EGL initialization failed, try to fallback to a GLX context. */
-#endif
-  for (int minor = 5; minor >= 0; --minor) {
-    context = create_glx_context(m_display, debug_context, 4, minor);
-    if (context != nullptr) {
-      return context;
-    }
-  }
-  context = create_glx_context(m_display, debug_context, 3, 3);
   if (context != nullptr) {
     return context;
   }

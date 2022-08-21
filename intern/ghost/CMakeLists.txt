@@ -191,12 +191,6 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       intern/GHOST_WindowX11.h
     )
 
-    list(APPEND SRC
-      intern/GHOST_ContextGLX.cpp
-
-      intern/GHOST_ContextGLX.h
-    )
-
     if(WITH_GHOST_XDND)
       add_definitions(-DWITH_XDND)
 

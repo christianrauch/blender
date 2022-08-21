@@ -10,7 +10,6 @@
 
 #if defined(WITH_GHOST_X11)
 #  include "GHOST_ContextEGL.h"
-#  include "GHOST_ContextGLX.h"
 #  include "GHOST_SystemX11.h"
 #endif
 #if defined(WITH_GHOST_WAYLAND)
